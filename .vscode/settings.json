@@ -1,0 +1,27 @@
+{
+  "tailwindCSS.includeLanguages": {
+    "html": "html",
+    "javascript": "javascript",
+    "css": "css"
+  },
+  "tailwindCSS.experimental.classRegex": [
+    ["class\\s*=\\s*[\"'`]([^\"'`]*)", "[\"'`]([^\"'`]*)[\"'`]"],
+    ["className\\s*=\\s*[\"'`]([^\"'`]*)", "[\"'`]([^\"'`]*)[\"'`]"],
+    ["class:\\s*[\"'`]([^\"'`]*)", "[\"'`]([^\"'`]*)[\"'`]"]
+  ],
+  "tailwindCSS.files.exclude": [
+    "**/.git/**",
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/.nuxt/**",
+    "**/.vuepress/**",
+    "**/dist/**"
+  ],
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "css.validate": false,
+  "less.validate": false,
+  "scss.validate": false,
+  "liveServer.settings.port": 5504
+}
