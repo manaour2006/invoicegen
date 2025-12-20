@@ -34,6 +34,7 @@ export default function RevenueChart() {
                     onChange={(e) => setPeriod(e.target.value)}
                 >
                     <option value="weekly">This Week</option>
+                    <option value="month">This Month</option>
                     <option value="monthly">This Year</option>
                 </select>
             </div>

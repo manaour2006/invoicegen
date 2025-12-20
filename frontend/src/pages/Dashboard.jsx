@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DollarSign, Clock, FileText, CheckCircle } from 'lucide-react';
 import StatCard from '../components/Dashboard/StatCard';
 import RevenueChart from '../components/Dashboard/RevenueChart';
@@ -9,6 +10,7 @@ export default function Dashboard() {
     const [stats, setStats] = useState(null);
     const [recentInvoices, setRecentInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     useEffect(() => {
         loadDashboardData();
@@ -46,7 +48,7 @@ export default function Dashboard() {
                     <h1 className="text-gradient" style={{ fontSize: '32px', margin: 0 }}>Dashboard</h1>
                     <p className="muted" style={{ marginTop: '8px' }}>Welcome back, here's what's happening today.</p>
                 </div>
-                <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button className="btn-primary" onClick={() => navigate('/create')} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <FileText size={18} /> New Invoice
                 </button>
             </div>
@@ -59,29 +61,29 @@ export default function Dashboard() {
             }}>
                 <StatCard
                     title="Total Earnings"
-                    value={`₹${stats.totalEarnings.toLocaleString('en-IN')}`}
-                    trend={12}
+                    value={`₹${stats?.totalEarnings?.toLocaleString('en-IN') ?? 0}`}
+                    trend={stats?.trends?.earnings}
                     icon={DollarSign}
                     color="#10b981"
                 />
                 <StatCard
                     title="Pending"
-                    value={`₹${stats.pendingAmount.toLocaleString('en-IN')}`}
-                    trend={-5}
+                    value={`₹${stats?.pendingAmount?.toLocaleString('en-IN') ?? 0}`}
+                    trend={stats?.trends?.pending}
                     icon={Clock}
                     color="#f59e0b"
                 />
                 <StatCard
                     title="Overdue"
-                    value={`₹${stats.overdueAmount.toLocaleString('en-IN')}`}
-                    trend={0}
+                    value={`₹${stats?.overdueAmount?.toLocaleString('en-IN') ?? 0}`}
+                    trend={stats?.trends?.overdue}
                     icon={FileText}
                     color="#ef4444"
                 />
                 <StatCard
                     title="Paid Invoices"
-                    value={String(stats.paidInvoicesCount)}
-                    trend={8}
+                    value={String(stats?.paidInvoicesCount ?? 0)}
+                    trend={stats?.trends?.paidCount}
                     icon={CheckCircle}
                     color="#6366f1"
                 />
@@ -115,6 +117,6 @@ export default function Dashboard() {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

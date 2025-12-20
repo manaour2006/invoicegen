@@ -9,7 +9,24 @@ export default function InvoiceEditor({ invoice, onChange }) {
     const [showClientModal, setShowClientModal] = useState(false);
     const [showItemModal, setShowItemModal] = useState(false);
     const [newClient, setNewClient] = useState({ name: '', email: '', address: '' });
-    const [newItem, setNewItem] = useState({ name: '', description: '', price: 0, unit: 'hour' });
+    const [newItem, setNewItem] = useState({ name: '', description: '', price: 0, unit: 'unit', category: 'Others', taxRate: 18 });
+
+    const CATEGORIES = {
+        'Electrical Appliances': { gst: 18, units: ['unit', 'piece', 'box', 'set'] },
+        'Vegetables': { gst: 5, units: ['kg', 'gram', 'quintal', 'tonne'] },
+        'Fruits': { gst: 12, units: ['kg', 'gram', 'dozen', 'box'] },
+        'Others': { gst: 18, units: ['unit', 'kg', 'litre', 'meter', 'hour', 'day', 'month', 'project'] }
+    };
+
+    const handleCategoryChange = (category) => {
+        const config = CATEGORIES[category];
+        setNewItem({
+            ...newItem,
+            category,
+            taxRate: config.gst,
+            unit: config.units[0]
+        });
+    };
 
     useEffect(() => {
         loadClients();
@@ -53,8 +70,9 @@ export default function InvoiceEditor({ invoice, onChange }) {
             const result = await createItem(newItem);
             setItems([...items, result.item]);
             addItemFromLibrary(result.item);
+            addItemFromLibrary(result.item);
             setShowItemModal(false);
-            setNewItem({ name: '', description: '', price: 0, unit: 'hour' });
+            setNewItem({ name: '', description: '', price: 0, unit: 'unit', category: 'Others', taxRate: 18 });
         } catch (error) {
             console.error('Error creating item:', error);
         }
@@ -84,7 +102,8 @@ export default function InvoiceEditor({ invoice, onChange }) {
             id: Date.now().toString(),
             description: libraryItem.name,
             quantity: 1,
-            price: libraryItem.price
+            price: libraryItem.price,
+            taxRate: libraryItem.taxRate || 0
         };
         onChange({ ...invoice, items: [...invoice.items, newItem] });
     };
@@ -100,9 +119,15 @@ export default function InvoiceEditor({ invoice, onChange }) {
     const selectClient = (clientId) => {
         const client = clients.find(c => c.id === clientId);
         if (client) {
-            updateTo('name', client.name);
-            updateTo('email', client.email);
-            updateTo('address', client.address);
+            onChange({
+                ...invoice,
+                to: {
+                    ...invoice.to,
+                    name: client.name,
+                    email: client.email,
+                    address: client.address
+                }
+            });
         }
     };
 
@@ -200,7 +225,7 @@ export default function InvoiceEditor({ invoice, onChange }) {
                         <Reorder.Item key={item.id} value={item} style={{ marginBottom: '12px' }}>
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: '24px 3fr 1fr 1fr 32px',
+                                gridTemplateColumns: '24px 3fr 1fr 1fr 0.8fr 32px',
                                 gap: '12px',
                                 alignItems: 'center',
                                 background: 'var(--bg-card-hover)',
@@ -212,6 +237,7 @@ export default function InvoiceEditor({ invoice, onChange }) {
                                 <input className="input-field" placeholder="Description" value={item.description} onChange={e => updateItem(index, 'description', e.target.value)} />
                                 <input type="number" className="input-field" placeholder="Qty" value={item.quantity} onChange={e => updateItem(index, 'quantity', Number(e.target.value))} />
                                 <input type="number" className="input-field" placeholder="Price" value={item.price} onChange={e => updateItem(index, 'price', Number(e.target.value))} />
+                                <input type="number" className="input-field" placeholder="GST %" value={item.taxRate || 0} onChange={e => updateItem(index, 'taxRate', Number(e.target.value))} title="GST Percentage" />
                                 <button onClick={() => removeItem(index)} style={{ color: 'var(--danger)', padding: 4 }}><Trash2 size={16} /></button>
                             </div>
                         </Reorder.Item>
@@ -231,10 +257,10 @@ export default function InvoiceEditor({ invoice, onChange }) {
                         <textarea className="input-field" rows="4" value={invoice.notes} onChange={e => updateField('notes', e.target.value)} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div>
+                        {/* <div>
                             <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Tax (%)</label>
                             <input type="number" className="input-field" value={invoice.tax} onChange={e => updateField('tax', Number(e.target.value))} />
-                        </div>
+                        </div> */}
                         <div>
                             <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Currency</label>
                             <select className="input-field" value={invoice.currency} onChange={e => updateField('currency', e.target.value)}>
@@ -249,8 +275,8 @@ export default function InvoiceEditor({ invoice, onChange }) {
 
             {/* Client Modal */}
             {showClientModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div className="glass-panel" style={{ padding: '32px', borderRadius: '16px', width: '90%', maxWidth: '500px' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+                    <div className="glass-panel" style={{ padding: '32px', borderRadius: '16px', width: '90%', maxWidth: '500px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h3 style={{ margin: 0, fontSize: '20px' }}>Create New Client</h3>
                             <button onClick={() => setShowClientModal(false)} style={{ color: 'var(--text-muted)' }}>
@@ -261,7 +287,14 @@ export default function InvoiceEditor({ invoice, onChange }) {
                             <input className="input-field" placeholder="Client Name" value={newClient.name} onChange={e => setNewClient({ ...newClient, name: e.target.value })} />
                             <input className="input-field" placeholder="Client Email" value={newClient.email} onChange={e => setNewClient({ ...newClient, email: e.target.value })} />
                             <textarea className="input-field" rows="3" placeholder="Address" value={newClient.address} onChange={e => setNewClient({ ...newClient, address: e.target.value })} />
-                            <button className="btn-primary" onClick={handleCreateClient}>Create Client</button>
+                            <button
+                                className="btn-primary"
+                                onClick={handleCreateClient}
+                                disabled={!newClient.name || !newClient.email}
+                                style={{ opacity: (!newClient.name || !newClient.email) ? 0.5 : 1 }}
+                            >
+                                Create Client
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -269,8 +302,8 @@ export default function InvoiceEditor({ invoice, onChange }) {
 
             {/* Item Modal */}
             {showItemModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div className="glass-panel" style={{ padding: '32px', borderRadius: '16px', width: '90%', maxWidth: '500px' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+                    <div className="glass-panel" style={{ padding: '32px', borderRadius: '16px', width: '90%', maxWidth: '500px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h3 style={{ margin: 0, fontSize: '20px' }}>Create New Item</h3>
                             <button onClick={() => setShowItemModal(false)} style={{ color: 'var(--text-muted)' }}>
@@ -278,16 +311,53 @@ export default function InvoiceEditor({ invoice, onChange }) {
                             </button>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <input className="input-field" placeholder="Item Name" value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
-                            <input className="input-field" placeholder="Description" value={newItem.description} onChange={e => setNewItem({ ...newItem, description: e.target.value })} />
-                            <input type="number" className="input-field" placeholder="Price" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: Number(e.target.value) })} />
-                            <select className="input-field" value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })}>
-                                <option value="hour">Per Hour</option>
-                                <option value="project">Per Project</option>
-                                <option value="month">Per Month</option>
-                                <option value="item">Per Item</option>
-                            </select>
-                            <button className="btn-primary" onClick={handleCreateItem}>Create Item</button>
+                            <div>
+                                <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Category</label>
+                                <select
+                                    className="input-field"
+                                    value={newItem.category}
+                                    onChange={e => handleCategoryChange(e.target.value)}
+                                >
+                                    {Object.keys(CATEGORIES).map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Item Name</label>
+                                <input className="input-field" placeholder="Item Name" value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Description</label>
+                                <input className="input-field" placeholder="Description" value={newItem.description} onChange={e => setNewItem({ ...newItem, description: e.target.value })} />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div>
+                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Price</label>
+                                    <input type="number" className="input-field" placeholder="Price" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: Number(e.target.value) })} />
+                                </div>
+                                <div>
+                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>GST %</label>
+                                    <input type="number" className="input-field" placeholder="GST %" value={newItem.taxRate || 0} onChange={e => setNewItem({ ...newItem, taxRate: Number(e.target.value) })} />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Unit</label>
+                                <select className="input-field" value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })}>
+                                    {(CATEGORIES[newItem.category]?.units || CATEGORIES['Others'].units).map(unit => (
+                                        <option key={unit} value={unit}>Per {unit.charAt(0).toUpperCase() + unit.slice(1)}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <button
+                                className="btn-primary"
+                                onClick={handleCreateItem}
+                                disabled={!newItem.name}
+                                style={{ opacity: !newItem.name ? 0.5 : 1 }}
+                            >
+                                Create Item
+                            </button>
                         </div>
                     </div>
                 </div>

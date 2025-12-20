@@ -1,75 +1,145 @@
-import React, { useState } from 'react';
-import { Save, Upload } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Save, Upload, Check } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 export default function Settings() {
-    const [profile, setProfile] = useState({
-        name: 'Manaour Azam',
-        company: 'Azam Designs',
-        email: 'contact@azam.design',
-        phone: '+91 98765 43210'
+    const { user, updateProfile } = useAuth();
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const [formData, setFormData] = useState({
+        name: '',
+        company: '',
+        email: '',
+        phone: '',
+        logo: null
     });
+    const [notification, setNotification] = useState(null);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            setFormData({
+                name: user.name || '',
+                company: user.company || '',
+                email: user.email || '',
+                phone: user.phone || '',
+                logo: user.logo || null
+            });
+        }
+    }, [user]);
 
     const handleChange = (e) => {
-        setProfile({ ...profile, [e.target.name]: e.target.value });
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFormData({ ...formData, logo: reader.result });
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            await updateProfile(formData);
+            setNotification('Profile updated successfully!');
+            setTimeout(() => setNotification(null), 3000);
+        } catch (error) {
+            console.error(error);
+            setNotification('Failed to update profile.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
         <div style={{ maxWidth: '800px' }}>
             <h1 className="text-gradient" style={{ fontSize: '32px', marginBottom: '32px' }}>Settings</h1>
 
+            {notification && (
+                <div style={{
+                    marginBottom: '20px',
+                    padding: '12px',
+                    background: 'var(--success)',
+                    color: 'white',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                }}>
+                    <Check size={18} /> {notification}
+                </div>
+            )}
+
             <div className="glass-panel" style={{ padding: '32px', borderRadius: '16px', marginBottom: '32px' }}>
                 <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>Branding</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '32px' }}>
-                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--bg-card-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--glass-border)' }}>
-                        <span style={{ fontSize: '32px' }}>AD</span>
+                    <div style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '50%',
+                        background: 'var(--bg-card-hover)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px dashed var(--glass-border)',
+                        overflow: 'hidden'
+                    }}>
+                        {formData.logo ? (
+                            <img src={formData.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                            <span style={{ fontSize: '32px' }}>{formData.name.charAt(0)}</span>
+                        )}
                     </div>
                     <div>
-                        <button className="btn-primary" style={{ background: 'var(--bg-card-hover)', color: 'var(--text-main)', border: '1px solid var(--glass-border)', fontSize: '14px' }}>
+                        <label className="btn-primary" style={{
+                            background: 'var(--bg-card-hover)',
+                            color: 'var(--text-main)',
+                            border: '1px solid var(--glass-border)',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center'
+                        }}>
                             <Upload size={14} style={{ marginRight: '8px' }} /> Upload Logo
-                        </button>
+                            <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+                        </label>
                         <p className="muted" style={{ fontSize: '12px', marginTop: '8px' }}>Recommended: 400x400px PNG</p>
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                    <div>
-                        <label className="text-muted" style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>Brand Color</label>
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#6366f1', cursor: 'pointer', border: '2px solid white' }}></div>
-                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#10b981', cursor: 'pointer' }}></div>
-                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#f59e0b', cursor: 'pointer' }}></div>
-                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#ef4444', cursor: 'pointer' }}></div>
-                        </div>
-                    </div>
-                    <div>
-                        <label className="text-muted" style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>Accent Color</label>
-                        <input type="color" className="input-field" style={{ height: '40px', padding: 2 }} />
-                    </div>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px' }}>
+                    {/* Color pickers could be added here if needed, keeping simple for now */}
                 </div>
             </div>
 
             <div className="glass-panel" style={{ padding: '32px', borderRadius: '16px' }}>
                 <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>Business Profile</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
                     <div>
                         <label className="text-muted" style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>Your Name</label>
-                        <input name="name" className="input-field" value={profile.name} onChange={handleChange} />
+                        <input name="name" className="input-field" value={formData.name} onChange={handleChange} />
                     </div>
                     <div>
                         <label className="text-muted" style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>Company Name</label>
-                        <input name="company" className="input-field" value={profile.company} onChange={handleChange} />
+                        <input name="company" className="input-field" value={formData.company} onChange={handleChange} />
                     </div>
                     <div>
                         <label className="text-muted" style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>Email</label>
-                        <input name="email" className="input-field" value={profile.email} onChange={handleChange} />
+                        <input name="email" className="input-field" value={formData.email} onChange={handleChange} disabled />
                     </div>
                     <div>
                         <label className="text-muted" style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>Phone</label>
-                        <input name="phone" className="input-field" value={profile.phone} onChange={handleChange} />
+                        <input name="phone" className="input-field" value={formData.phone} onChange={handleChange} />
                     </div>
                 </div>
-                <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Save size={18} /> Save Changes
+                <button className="btn-primary" onClick={handleSave} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Save size={18} /> {saving ? 'Saving...' : 'Save Changes'}
                 </button>
             </div>
         </div>

@@ -5,17 +5,15 @@ import { Save, Download, Share2, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getNextInvoiceNumber, createInvoice, updateInvoiceStatus } from '../services/api';
 import { downloadInvoicePDF } from '../utils/pdfGenerator';
+import { useAuth } from '../context/AuthContext';
 
 const initialInvoice = {
     invoiceNumber: 'INV-001',
     date: new Date().toISOString().slice(0, 10),
     dueDate: '',
-    from: { name: 'Your Company', email: 'hello@company.com', address: '123 Business Rd' },
+    from: { name: '', email: '', address: '', phone: '', logo: null },
     to: { name: '', email: '', address: '' },
-    items: [
-        { id: '1', description: 'Web Development Services', quantity: 1, price: 5000 },
-        { id: '2', description: 'UI/UX Design', quantity: 1, price: 3000 }
-    ],
+    items: [],
     tax: 18,
     currency: 'INR',
     notes: 'Thank you for your business!'
@@ -25,8 +23,9 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 
 export default function CreateInvoice() {
     const isMobile = useMediaQuery('(max-width: 768px)');
+    const { user } = useAuth();
     const [invoice, setInvoice] = useState(initialInvoice);
-    const [activeTab, setActiveTab] = useState('editor'); // 'editor' | 'preview'
+    const [activeTab, setActiveTab] = useState('editor');
     const [saving, setSaving] = useState(false);
     const [sending, setSending] = useState(false);
     const [notification, setNotification] = useState(null);
@@ -34,6 +33,22 @@ export default function CreateInvoice() {
     useEffect(() => {
         loadNextInvoiceNumber();
     }, []);
+
+    // Auto-populate 'from' field with user profile
+    useEffect(() => {
+        if (user) {
+            setInvoice(prev => ({
+                ...prev,
+                from: {
+                    name: user.company || user.name || '',
+                    email: user.email || '',
+                    address: user.address || '',
+                    phone: user.phone || '',
+                    logo: user.logo || null
+                }
+            }));
+        }
+    }, [user]);
 
     const loadNextInvoiceNumber = async () => {
         try {
@@ -56,7 +71,7 @@ export default function CreateInvoice() {
                 ...invoice,
                 status: 'draft',
                 subtotal: invoice.items.reduce((sum, item) => sum + (item.quantity * item.price), 0),
-                total: invoice.items.reduce((sum, item) => sum + (item.quantity * item.price), 0) * (1 + invoice.tax / 100)
+                total: invoice.items.reduce((sum, item) => sum + (item.quantity * item.price) * (1 + (item.taxRate || 0) / 100), 0)
             };
             await createInvoice(invoiceData);
             showNotification('Invoice saved as draft successfully!');
@@ -74,7 +89,7 @@ export default function CreateInvoice() {
 
             // Calculate totals
             const subtotal = invoice.items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-            const total = subtotal * (1 + invoice.tax / 100);
+            const total = invoice.items.reduce((sum, item) => sum + (item.quantity * item.price) * (1 + (item.taxRate || 0) / 100), 0);
 
             // Save invoice with 'sent' status
             const invoiceData = {
@@ -134,6 +149,7 @@ export default function CreateInvoice() {
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '20px', gap: isMobile ? 12 : 0 }}>
                 <h1 className="text-gradient" style={{ fontSize: '24px', margin: 0 }}>Create Invoice</h1>
                 <div style={{ display: 'flex', gap: '12px', width: isMobile ? '100%' : 'auto' }}>
+
                     <button
                         className="btn-primary"
                         style={{ background: 'transparent', color: 'var(--primary)', border: '1px solid var(--primary)', flex: 1 }}

@@ -7,11 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start":"vite"
+    "start": "vite"
   },
   "dependencies": {
     "clsx": "^2.1.1",
-    "framer-motion": "^12.23.25",
+    "firebase": "^12.7.0",
+    "framer-motion": "^12.23.26",
+    "jspdf": "^3.0.4",
     "lucide-react": "^0.378.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
