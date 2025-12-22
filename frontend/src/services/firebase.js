@@ -15,6 +15,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+import { getStorage } from 'firebase/storage';
+export const storage = getStorage(app);
 // Initialize analytics if supported (optional, mostly for web)
 import { getAnalytics, isSupported } from "firebase/analytics";
 export const analytics = isSupported().then(yes => yes ? getAnalytics(app) : null);

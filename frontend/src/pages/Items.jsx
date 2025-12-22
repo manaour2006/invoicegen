@@ -6,7 +6,7 @@ export default function Items() {
     const [items, setItems] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [deleteId, setDeleteId] = useState(null);
-    const [newItem, setNewItem] = useState({ name: '', description: '', price: 0, unit: 'unit', category: 'Others', taxRate: 18 });
+    const [newItem, setNewItem] = useState({ name: '', description: '', price: 0, costPrice: 0, unit: 'unit', category: 'Others', taxRate: 18 });
     const [loading, setLoading] = useState(true);
 
     const CATEGORIES = {
@@ -46,7 +46,7 @@ export default function Items() {
             const result = await createItem(newItem);
             setItems([...items, result.item]);
             setShowModal(false);
-            setNewItem({ name: '', description: '', price: 0, unit: 'unit', category: 'Others', taxRate: 18 });
+            setNewItem({ name: '', description: '', price: 0, costPrice: 0, unit: 'unit', category: 'Others', taxRate: 18 });
         } catch (error) {
             console.error('Error creating item:', error);
         }
@@ -135,7 +135,21 @@ export default function Items() {
                                 <Package size={24} color="var(--primary)" />
                             </div>
                             <div style={{ flex: 1 }}>
-                                <h3 style={{ margin: '0 0 6px 0', fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>{item.name}</h3>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <h3 style={{ margin: '0 0 6px 0', fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>{item.name}</h3>
+                                    {item.productId && (
+                                        <span style={{
+                                            fontSize: '10px',
+                                            background: 'var(--bg-card)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            color: 'var(--text-muted)',
+                                            border: '1px solid var(--glass-border)'
+                                        }}>
+                                            {item.productId}
+                                        </span>
+                                    )}
+                                </div>
                                 <p className="muted" style={{ margin: 0, fontSize: '14px', lineHeight: '1.5', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                     {item.description}
                                 </p>
@@ -195,17 +209,34 @@ export default function Items() {
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                 <div>
-                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Price</label>
-                                    <input type="number" className="input-field" placeholder="Price" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: Number(e.target.value) })} />
+                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Selling Price</label>
+                                    <input type="number" className="input-field" placeholder="Selling Price" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: Number(e.target.value) })} />
                                 </div>
                                 <div>
-                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>GST %</label>
+                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Cost Price</label>
+                                    <input type="number" className="input-field" placeholder="Cost Price" value={newItem.costPrice} onChange={e => setNewItem({ ...newItem, costPrice: Number(e.target.value) })} />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div>
+                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Tax %</label>
                                     <input
                                         type="number"
                                         className="input-field"
                                         placeholder="GST Tax %"
                                         value={newItem.taxRate}
                                         onChange={e => setNewItem({ ...newItem, taxRate: Number(e.target.value) })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Product ID</label>
+                                    <input
+                                        className="input-field"
+                                        placeholder="Auto-generated"
+                                        value={newItem.productId || 'Auto-generated'}
+                                        disabled
+                                        style={{ background: 'var(--bg-card)', opacity: 0.7 }}
                                     />
                                 </div>
                             </div>

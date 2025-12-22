@@ -15,6 +15,7 @@ export default function Settings() {
     });
     const [notification, setNotification] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -32,14 +33,33 @@ export default function Settings() {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleImageUpload = (e) => {
+    const handleImageUpload = async (e) => {
         const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setFormData({ ...formData, logo: reader.result });
-            };
-            reader.readAsDataURL(file);
+        if (!file) return;
+
+        // Validations
+        if (file.size > 2 * 1024 * 1024) { // 2MB limit
+            setNotification('File is too large. Max 2MB.');
+            return;
+        }
+
+        try {
+            setUploading(true);
+            const { storage } = await import('../services/firebase');
+            const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+
+            const storageRef = ref(storage, `users/${user.uid}/logo`);
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+
+            setFormData(prev => ({ ...prev, logo: downloadURL }));
+            setNotification('Logo uploaded successfully! Click Save to apply.');
+            setTimeout(() => setNotification(null), 3000);
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            setNotification('Failed to upload image.');
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -106,8 +126,8 @@ export default function Settings() {
                             display: 'inline-flex',
                             alignItems: 'center'
                         }}>
-                            <Upload size={14} style={{ marginRight: '8px' }} /> Upload Logo
-                            <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+                            <Upload size={14} style={{ marginRight: '8px' }} /> {uploading ? 'Uploading...' : 'Upload Logo'}
+                            <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={uploading} />
                         </label>
                         <p className="muted" style={{ fontSize: '12px', marginTop: '8px' }}>Recommended: 400x400px PNG</p>
                     </div>

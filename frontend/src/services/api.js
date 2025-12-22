@@ -22,6 +22,41 @@ const getUserId = () => {
 
 // ============= ANALYTICS =============
 
+export const checkAndMarkOverdueInvoices = async () => {
+    try {
+        const uid = getUserId();
+        const invoicesRef = collection(db, 'users', uid, 'invoices');
+        const snapshot = await getDocs(invoicesRef);
+
+        const now = new Date();
+        const updates = [];
+
+        snapshot.docs.forEach(docSnap => {
+            const data = docSnap.data();
+            const status = (data.status || 'draft').toLowerCase();
+
+            // If pending/sent/draft AND due date is passed -> mark overdue
+            if ((status === 'pending' || status === 'sent' || status === 'draft') && data.dueDate) {
+                const dueDate = new Date(data.dueDate);
+                // Compare dates (ignore time if needed, but simple comparison works)
+                if (dueDate < now) {
+                    updates.push(updateDoc(doc(db, 'users', uid, 'invoices', docSnap.id), {
+                        status: 'overdue',
+                        updatedAt: new Date().toISOString()
+                    }));
+                }
+            }
+        });
+
+        if (updates.length > 0) {
+            await Promise.all(updates);
+            console.log(`Marked ${updates.length} invoices as overdue.`);
+        }
+    } catch (error) {
+        console.error('Error checking overdue invoices:', error);
+    }
+};
+
 export const getAnalyticsStats = async () => {
     try {
         const uid = getUserId();
@@ -29,24 +64,34 @@ export const getAnalyticsStats = async () => {
         const snapshot = await getDocs(invoicesRef);
 
         const invoices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log("DEBUG: Raw Invoices for Analytics", invoices);
+
+        const normalizeStatus = (status) => (status || 'draft').toString().trim().toLowerCase();
 
         const totalEarnings = invoices
-            .filter(inv => inv.status === 'paid')
+            .filter(inv => normalizeStatus(inv.status) === 'paid')
             .reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
 
         const pendingAmount = invoices
-            .filter(inv => inv.status === 'pending' || inv.status === 'sent' || inv.status === 'draft')
+            .filter(inv => {
+                const status = normalizeStatus(inv.status);
+                return status === 'pending' || status === 'sent' || status === 'draft';
+            })
             .reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
 
         const overdueAmount = invoices
             .filter(inv => {
-                if (inv.status === 'paid') return false;
+                const status = normalizeStatus(inv.status);
+                if (status === 'paid') return false;
                 if (!inv.dueDate) return false;
+                // Check if overdue
                 return new Date(inv.dueDate) < new Date();
             })
             .reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
 
-        const paidInvoicesCount = invoices.filter(inv => inv.status === 'paid').length;
+        const paidInvoicesCount = invoices.filter(inv => normalizeStatus(inv.status) === 'paid').length;
+
+        console.log("DEBUG: Calculated Stats", { totalEarnings, pendingAmount, overdueAmount, paidInvoicesCount });
 
         // Calculate trends
         const currentMonth = new Date().getMonth();
@@ -54,6 +99,8 @@ export const getAnalyticsStats = async () => {
         const prevMonthDate = new Date();
         prevMonthDate.setMonth(currentMonth - 1);
         const prevMonth = prevMonthDate.getMonth();
+        // Handle year rollover if previous month was Dec
+        const prevYear = prevMonth === 11 ? currentYear - 1 : currentYear;
 
         const getMonthlyTotal = (statusFilter, month, year) => {
             return invoices
@@ -75,28 +122,30 @@ export const getAnalyticsStats = async () => {
                 .length;
         };
 
-        const currentEarnings = getMonthlyTotal(inv => inv.status === 'paid', currentMonth, currentYear);
-        const prevEarnings = getMonthlyTotal(inv => inv.status === 'paid', prevMonth, prevYear);
+        const currentEarnings = getMonthlyTotal(inv => normalizeStatus(inv.status) === 'paid', currentMonth, currentYear);
+        const prevEarnings = getMonthlyTotal(inv => normalizeStatus(inv.status) === 'paid', prevMonth, prevYear);
         const earningsTrend = prevEarnings === 0 ? null : Math.round(((currentEarnings - prevEarnings) / prevEarnings) * 100);
 
-        const currentPending = getMonthlyTotal(inv => inv.status === 'pending' || inv.status === 'sent' || inv.status === 'draft', currentMonth, currentYear);
-        const prevPending = getMonthlyTotal(inv => inv.status === 'pending' || inv.status === 'sent' || inv.status === 'draft', prevMonth, prevYear);
+        const currentPending = getMonthlyTotal(inv => ['pending', 'sent', 'draft'].includes(normalizeStatus(inv.status)), currentMonth, currentYear);
+        const prevPending = getMonthlyTotal(inv => ['pending', 'sent', 'draft'].includes(normalizeStatus(inv.status)), prevMonth, prevYear);
         const pendingTrend = prevPending === 0 ? null : Math.round(((currentPending - prevPending) / prevPending) * 100);
 
         const currentOverdue = getMonthlyTotal(inv => {
-            if (inv.status === 'paid') return false;
+            if (normalizeStatus(inv.status) === 'paid') return false;
             if (!inv.dueDate) return false;
             return new Date(inv.dueDate) < new Date();
         }, currentMonth, currentYear);
+
         const prevOverdue = getMonthlyTotal(inv => {
-            if (inv.status === 'paid') return false;
+            if (normalizeStatus(inv.status) === 'paid') return false;
             if (!inv.dueDate) return false;
-            return new Date(inv.dueDate) < prevMonthDate;
+            return new Date(inv.dueDate) < prevMonthDate; // Approximate
         }, prevMonth, prevYear);
+
         const overdueTrend = prevOverdue === 0 ? null : Math.round(((currentOverdue - prevOverdue) / prevOverdue) * 100);
 
-        const currentPaidCount = getMonthlyCount(inv => inv.status === 'paid', currentMonth, currentYear);
-        const prevPaidCount = getMonthlyCount(inv => inv.status === 'paid', prevMonth, prevYear);
+        const currentPaidCount = getMonthlyCount(inv => normalizeStatus(inv.status) === 'paid', currentMonth, currentYear);
+        const prevPaidCount = getMonthlyCount(inv => normalizeStatus(inv.status) === 'paid', prevMonth, prevYear);
         const paidCountTrend = prevPaidCount === 0 ? null : Math.round(((currentPaidCount - prevPaidCount) / prevPaidCount) * 100);
 
 
@@ -104,11 +153,15 @@ export const getAnalyticsStats = async () => {
         const distribution = { Paid: 0, Pending: 0, Overdue: 0 };
         invoices.forEach(inv => {
             const amount = Number(inv.total) || 0;
-            if (inv.status === 'paid') {
+            const status = normalizeStatus(inv.status);
+
+            if (status === 'paid') {
                 distribution.Paid += amount;
             } else if (inv.dueDate && new Date(inv.dueDate) < new Date()) {
+                // It's not paid, and it's past due -> Overdue
                 distribution.Overdue += amount;
-            } else if (inv.status === 'pending' || inv.status === 'sent' || inv.status === 'draft') {
+            } else {
+                // Pending/Sent/Draft/Unknown
                 distribution.Pending += amount;
             }
         });
@@ -262,6 +315,16 @@ export const createInvoice = async (invoiceData) => {
     try {
         const uid = getUserId();
         const invoicesRef = collection(db, 'users', uid, 'invoices');
+
+        // Check for duplicate invoiceNumber
+        if (invoiceData.invoiceNumber) {
+            const q = query(invoicesRef, where('invoiceNumber', '==', invoiceData.invoiceNumber));
+            const snapshot = await getDocs(q);
+            if (!snapshot.empty) {
+                throw new Error(`Invoice number ${invoiceData.invoiceNumber} already exists. Please use a unique number.`);
+            }
+        }
+
         const newInvoice = {
             ...invoiceData,
             createdAt: new Date().toISOString(),
@@ -436,7 +499,23 @@ export const createItem = async (itemData) => {
     try {
         const uid = getUserId();
         const itemsRef = collection(db, 'users', uid, 'items');
-        const newItem = { ...itemData, createdAt: new Date().toISOString() };
+
+        let productId = itemData.productId;
+
+        // Auto-generate ID if not provided (Format: PROD-001)
+        if (!productId) {
+            const snapshot = await getDocs(itemsRef);
+            const count = snapshot.size + 1;
+            productId = `PROD-${String(count).padStart(3, '0')}`;
+        }
+
+        const newItem = {
+            ...itemData,
+            productId,
+            costPrice: Number(itemData.costPrice) || 0, // Ensure costPrice is stored
+            createdAt: new Date().toISOString()
+        };
+
         const docRef = await addDoc(itemsRef, newItem);
         return { item: { id: docRef.id, ...newItem } };
     } catch (error) {

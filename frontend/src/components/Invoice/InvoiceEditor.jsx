@@ -103,6 +103,7 @@ export default function InvoiceEditor({ invoice, onChange }) {
             description: libraryItem.name,
             quantity: 1,
             price: libraryItem.price,
+            costPrice: libraryItem.costPrice || 0, // IMPORTANT: Carry over cost price
             taxRate: libraryItem.taxRate || 0
         };
         onChange({ ...invoice, items: [...invoice.items, newItem] });
@@ -220,6 +221,26 @@ export default function InvoiceEditor({ invoice, onChange }) {
                     </div>
                 )}
 
+                {/* Column Headers */}
+                {/* Column Headers */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '24px 3fr 1fr 1fr 0.8fr 32px',
+                    gap: '12px',
+                    marginBottom: '8px',
+                    padding: '0 12px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: '#4b5563' // Darker grey text
+                }}>
+                    <div></div>
+                    <div style={{ textAlign: 'left', paddingLeft: '4px' }}>Item</div>
+                    <div style={{ textAlign: 'center' }}>Qty</div>
+                    <div style={{ textAlign: 'center' }}>Price</div>
+                    <div style={{ textAlign: 'center' }}>Tax %</div>
+                    <div></div>
+                </div>
+
                 <Reorder.Group axis="y" values={invoice.items} onReorder={setInvoiceItems}>
                     {invoice.items.map((item, index) => (
                         <Reorder.Item key={item.id} value={item} style={{ marginBottom: '12px' }}>
@@ -228,23 +249,59 @@ export default function InvoiceEditor({ invoice, onChange }) {
                                 gridTemplateColumns: '24px 3fr 1fr 1fr 0.8fr 32px',
                                 gap: '12px',
                                 alignItems: 'center',
-                                background: 'var(--bg-card-hover)',
+                                background: 'white',
                                 padding: '12px',
                                 borderRadius: '8px',
-                                border: '1px solid var(--glass-border)'
+                                border: '1px solid #e5e7eb',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                             }}>
-                                <GripVertical size={16} style={{ cursor: 'grab', color: 'var(--text-muted)' }} />
-                                <input className="input-field" placeholder="Description" value={item.description} onChange={e => updateItem(index, 'description', e.target.value)} />
-                                <input type="number" className="input-field" placeholder="Qty" value={item.quantity} onChange={e => updateItem(index, 'quantity', Number(e.target.value))} />
-                                <input type="number" className="input-field" placeholder="Price" value={item.price} onChange={e => updateItem(index, 'price', Number(e.target.value))} />
-                                <input type="number" className="input-field" placeholder="GST %" value={item.taxRate || 0} onChange={e => updateItem(index, 'taxRate', Number(e.target.value))} title="GST Percentage" />
-                                <button onClick={() => removeItem(index)} style={{ color: 'var(--danger)', padding: 4 }}><Trash2 size={16} /></button>
+                                <GripVertical size={16} style={{ cursor: 'grab', color: '#9ca3af' }} />
+
+                                <input
+                                    className="input-field"
+                                    placeholder="Description"
+                                    value={item.description}
+                                    onChange={e => updateItem(index, 'description', e.target.value)}
+                                    style={{ border: '1px solid #d1d5db', background: 'white', padding: '8px', borderRadius: '6px', width: '100%' }}
+                                />
+                                <input
+                                    type="number"
+                                    className="input-field"
+                                    placeholder="0"
+                                    value={item.quantity}
+                                    onChange={e => updateItem(index, 'quantity', Number(e.target.value))}
+                                    style={{ border: '1px solid #d1d5db', background: 'white', padding: '8px', borderRadius: '6px', textAlign: 'center', width: '100%' }}
+                                />
+                                <input
+                                    type="number"
+                                    className="input-field"
+                                    placeholder="0.00"
+                                    value={item.price}
+                                    onChange={e => updateItem(index, 'price', Number(e.target.value))}
+                                    style={{ border: '1px solid #d1d5db', background: 'white', padding: '8px', borderRadius: '6px', textAlign: 'center', width: '100%' }}
+                                />
+                                <input
+                                    type="number"
+                                    className="input-field"
+                                    placeholder="0"
+                                    value={item.taxRate || 0}
+                                    onChange={e => updateItem(index, 'taxRate', Number(e.target.value))}
+                                    title="Tax Percentage"
+                                    style={{ border: '1px solid #d1d5db', background: 'white', padding: '8px', borderRadius: '6px', textAlign: 'center', width: '100%' }}
+                                />
+
+                                <button
+                                    onClick={() => removeItem(index)}
+                                    style={{ color: '#ef4444', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fee2e2', borderRadius: '6px' }}
+                                >
+                                    <Trash2 size={16} />
+                                </button>
                             </div>
                         </Reorder.Item>
                     ))}
                 </Reorder.Group>
 
-                <button className="btn-primary" onClick={addItem} style={{ width: '100%', marginTop: '12px', background: 'rgba(255,255,255,0.05)', border: '1px dashed var(--glass-border)' }}>
+                <button className="btn-primary" onClick={addItem} style={{ width: '100%', marginTop: '12px', background: 'transparent', border: '1px dashed var(--primary)', color: 'var(--primary)' }}>
                     <Plus size={16} style={{ marginRight: 8 }} /> Add Item
                 </button>
             </div>

@@ -4,21 +4,28 @@ import { DollarSign, Clock, FileText, CheckCircle } from 'lucide-react';
 import StatCard from '../components/Dashboard/StatCard';
 import RevenueChart from '../components/Dashboard/RevenueChart';
 import InvoiceStatusChart from '../components/Dashboard/InvoiceStatusChart';
-import { getAnalyticsStats, getInvoices } from '../services/api';
+import { getAnalyticsStats, getInvoices, checkAndMarkOverdueInvoices } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
     const [stats, setStats] = useState(null);
     const [recentInvoices, setRecentInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
-    const navigate = useNavigate();
+    const { user, loading: authLoading } = useAuth();
 
     useEffect(() => {
-        loadDashboardData();
-    }, []);
+        if (!authLoading && user) {
+            loadDashboardData();
+        }
+    }, [authLoading, user]);
 
     const loadDashboardData = async () => {
         try {
             setLoading(true);
+
+            // Check for overdue invoices first
+            await checkAndMarkOverdueInvoices();
+
             const [statsData, invoicesData] = await Promise.all([
                 getAnalyticsStats(),
                 getInvoices()
@@ -33,7 +40,7 @@ export default function Dashboard() {
         }
     };
 
-    if (loading) {
+    if (loading || authLoading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
                 <div style={{ fontSize: '18px', color: 'var(--text-muted)' }}>Loading dashboard...</div>
