@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { DollarSign, Clock, FileText, CheckCircle } from 'lucide-react';
 import StatCard from '../components/Dashboard/StatCard';
 import RevenueChart from '../components/Dashboard/RevenueChart';
-import ExpensesPieChart from '../components/Dashboard/ExpensesPieChart';
+import InvoiceStatusChart from '../components/Dashboard/InvoiceStatusChart';
 import { getAnalyticsStats, getInvoices } from '../services/api';
 
 export default function Dashboard() {
@@ -92,7 +92,7 @@ export default function Dashboard() {
             {/* Charts Grid */}
             <div className="grid-stack-mobile" style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '24px', marginBottom: '32px' }}>
                 <RevenueChart />
-                <ExpensesPieChart />
+                <InvoiceStatusChart data={stats?.invoiceDistribution} />
             </div>
 
             <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px' }}>

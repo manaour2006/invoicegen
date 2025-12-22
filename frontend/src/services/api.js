@@ -35,7 +35,7 @@ export const getAnalyticsStats = async () => {
             .reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
 
         const pendingAmount = invoices
-            .filter(inv => inv.status === 'pending' || inv.status === 'sent')
+            .filter(inv => inv.status === 'pending' || inv.status === 'sent' || inv.status === 'draft')
             .reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
 
         const overdueAmount = invoices
@@ -79,8 +79,8 @@ export const getAnalyticsStats = async () => {
         const prevEarnings = getMonthlyTotal(inv => inv.status === 'paid', prevMonth, prevYear);
         const earningsTrend = prevEarnings === 0 ? null : Math.round(((currentEarnings - prevEarnings) / prevEarnings) * 100);
 
-        const currentPending = getMonthlyTotal(inv => inv.status === 'pending' || inv.status === 'sent', currentMonth, currentYear);
-        const prevPending = getMonthlyTotal(inv => inv.status === 'pending' || inv.status === 'sent', prevMonth, prevYear);
+        const currentPending = getMonthlyTotal(inv => inv.status === 'pending' || inv.status === 'sent' || inv.status === 'draft', currentMonth, currentYear);
+        const prevPending = getMonthlyTotal(inv => inv.status === 'pending' || inv.status === 'sent' || inv.status === 'draft', prevMonth, prevYear);
         const pendingTrend = prevPending === 0 ? null : Math.round(((currentPending - prevPending) / prevPending) * 100);
 
         const currentOverdue = getMonthlyTotal(inv => {
@@ -100,6 +100,19 @@ export const getAnalyticsStats = async () => {
         const paidCountTrend = prevPaidCount === 0 ? null : Math.round(((currentPaidCount - prevPaidCount) / prevPaidCount) * 100);
 
 
+
+        const distribution = { Paid: 0, Pending: 0, Overdue: 0 };
+        invoices.forEach(inv => {
+            const amount = Number(inv.total) || 0;
+            if (inv.status === 'paid') {
+                distribution.Paid += amount;
+            } else if (inv.dueDate && new Date(inv.dueDate) < new Date()) {
+                distribution.Overdue += amount;
+            } else if (inv.status === 'pending' || inv.status === 'sent' || inv.status === 'draft') {
+                distribution.Pending += amount;
+            }
+        });
+
         return {
             totalEarnings,
             pendingAmount,
@@ -110,7 +123,12 @@ export const getAnalyticsStats = async () => {
                 pending: pendingTrend,
                 overdue: overdueTrend,
                 paidCount: paidCountTrend
-            }
+            },
+            invoiceDistribution: [
+                { name: 'Paid', value: distribution.Paid },
+                { name: 'Pending', value: distribution.Pending },
+                { name: 'Overdue', value: distribution.Overdue }
+            ]
         };
     } catch (error) {
         console.error('Error fetching analytics:', error);

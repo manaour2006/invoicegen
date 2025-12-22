@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { getExpensesData } from '../../services/api';
 
-const COLORS = ['#8d6e63', '#a1887f', '#bcaaa4', '#d7ccc8']; // Brown palette
+const COLORS = ['#10b981', '#f59e0b', '#ef4444']; // Paid (Green), Pending (Yellow), Overdue (Red)
 
 const RenderLegend = (props) => {
     const { payload } = props;
@@ -18,36 +17,28 @@ const RenderLegend = (props) => {
     );
 };
 
-export default function ExpensesPieChart() {
-    const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(true);
+export default function InvoiceStatusChart({ data = [] }) {
+    // Filter out zero values so they don't take up space or show in legend if unwanted,
+    // though showing 0 in legend might be okay. Recharts handles 0 values fine usually.
+    // Ensure we map colors correctly to the specific names if order changes, 
+    // but here we know the order from api.js is Paid, Pending, Overdue.
+    // Better to map by name to be safe.
 
-    useEffect(() => {
-        loadExpensesData();
-    }, []);
-
-    const loadExpensesData = async () => {
-        try {
-            setLoading(true);
-            const result = await getExpensesData();
-            setData(result.data);
-        } catch (error) {
-            console.error('Error loading expenses data:', error);
-        } finally {
-            setLoading(false);
-        }
+    // Map colors to names
+    const colorMap = {
+        'Paid': '#10b981',
+        'Pending': '#f59e0b',
+        'Overdue': '#ef4444'
     };
+
+    const hasData = data.some(item => item.value > 0);
 
     return (
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', height: '100%' }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>Expenses</h3>
-            {loading ? (
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>Revenue Breakdown by Invoice Status</h3>
+            {!hasData ? (
                 <div style={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                    Loading...
-                </div>
-            ) : data.length === 0 ? (
-                <div style={{ width: '100%', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                    No expenses recorded yet
+                    No invoice data available
                 </div>
             ) : (
                 <div style={{ width: '100%', height: 300 }}>
@@ -63,10 +54,11 @@ export default function ExpensesPieChart() {
                                 dataKey="value"
                             >
                                 {data.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
+                                    <Cell key={`cell-${index}`} fill={colorMap[entry.name] || '#ccc'} stroke="none" />
                                 ))}
                             </Pie>
                             <Tooltip
+                                formatter={(value) => `₹${value.toLocaleString('en-IN')}`}
                                 contentStyle={{
                                     backgroundColor: 'var(--bg-card)',
                                     borderRadius: '8px',
