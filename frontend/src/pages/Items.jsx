@@ -130,7 +130,7 @@ export default function Items() {
                                 </div>
                             )}
                         </div>
-                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', marginBottom: '16px' }}>
                             <button
                                 onClick={() => openEditModal(item)}
                                 style={{
