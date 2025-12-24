@@ -8,9 +8,10 @@ import {
     doc,
     updateDoc,
     deleteDoc,
-    query,
     where,
-    orderBy
+    orderBy,
+    query,
+    limit
 } from 'firebase/firestore';
 
 // Helper to get current user ID
@@ -18,6 +19,37 @@ const getUserId = () => {
     const user = auth.currentUser;
     if (!user) throw new Error('User not authenticated');
     return user.uid;
+};
+
+// ============= AUDIT LOGS =============
+
+export const logActivity = async (action, entityType, entityId, details = '') => {
+    try {
+        const uid = getUserId();
+        const logsRef = collection(db, 'users', uid, 'audit_logs');
+        await addDoc(logsRef, {
+            action,
+            entityType,
+            entityId,
+            details,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Failed to log activity:', error);
+    }
+};
+
+export const getAuditLogs = async (limitCount = 20) => {
+    try {
+        const uid = getUserId();
+        const logsRef = collection(db, 'users', uid, 'audit_logs');
+        const q = query(logsRef, orderBy('timestamp', 'desc'), limit(limitCount));
+        const snapshot = await getDocs(q);
+        return { logs: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) };
+    } catch (error) {
+        console.error('Error fetching audit logs:', error);
+        return { logs: [] };
+    }
 };
 
 // ============= ANALYTICS =============
@@ -331,6 +363,35 @@ export const createInvoice = async (invoiceData) => {
             status: invoiceData.status || 'draft'
         };
         const docRef = await addDoc(invoicesRef, newInvoice);
+
+        // Inventory Management: Deduct stock
+        if (newInvoice.items && newInvoice.items.length > 0) {
+            newInvoice.items.forEach(async (invItem) => {
+                // If the item has an ID (it exists in inventory), deduct stock
+                if (invItem.id || invItem.itemId) {
+                    const itemId = invItem.id || invItem.itemId;
+                    try {
+                        const itemDocRef = doc(db, 'users', uid, 'items', itemId);
+                        const itemSnap = await getDoc(itemDocRef);
+                        if (itemSnap.exists()) {
+                            const currentStock = Number(itemSnap.data().quantity) || 0;
+                            const newStock = Math.max(0, currentStock - (Number(invItem.quantity) || 0));
+                            await updateDoc(itemDocRef, { quantity: newStock });
+
+                            // Check low stock
+                            const threshold = Number(itemSnap.data().lowStockThreshold) || 0;
+                            if (newStock <= threshold) {
+                                logActivity('Low Stock Alert', 'Item', itemId, `Item "${invItem.description}" is low on stock (${newStock} remaining).`);
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`Failed to update stock for item ${itemId}`, err);
+                    }
+                }
+            });
+        }
+
+        await logActivity('Created', 'Invoice', docRef.id, `Invoice ${newInvoice.invoiceNumber} created.`);
         return { invoice: { id: docRef.id, ...newInvoice } };
     } catch (error) {
         console.error('Error creating invoice:', error);
@@ -346,6 +407,7 @@ export const updateInvoiceStatus = async (id, status) => {
             status,
             updatedAt: new Date().toISOString()
         });
+        await logActivity('Updated Status', 'Invoice', id, `Status updated to ${status}`);
         return { invoice: { id, status } };
     } catch (error) {
         console.error('Error updating invoice status:', error);
@@ -390,6 +452,7 @@ export const updateInvoice = async (invoiceId, invoiceData) => {
             ...invoiceData,
             updatedAt: new Date().toISOString()
         });
+        await logActivity('Updated', 'Invoice', invoiceId, 'Invoice details updated.');
         return { invoice: { id: invoiceId, ...invoiceData } };
     } catch (error) {
         console.error('Error updating invoice:', error);
@@ -402,6 +465,7 @@ export const deleteInvoice = async (invoiceId) => {
         const uid = getUserId();
         const invoiceRef = doc(db, 'users', uid, 'invoices', invoiceId);
         await deleteDoc(invoiceRef);
+        await logActivity('Deleted', 'Invoice', invoiceId, 'Invoice deleted.');
         return { invoiceId };
     } catch (error) {
         console.error('Error deleting invoice:', error);
@@ -418,6 +482,7 @@ export const markInvoiceAsPaid = async (invoiceId, paymentDate = new Date().toIS
             paymentDate,
             updatedAt: new Date().toISOString()
         });
+        await logActivity('Paid', 'Invoice', invoiceId, `Invoice marked as paid on ${paymentDate}.`);
         return { invoice: { id: invoiceId, status: 'paid', paymentDate } };
     } catch (error) {
         console.error('Error marking invoice as paid:', error);
@@ -446,6 +511,7 @@ export const createClient = async (clientData) => {
         const clientsRef = collection(db, 'users', uid, 'clients');
         const newClient = { ...clientData, createdAt: new Date().toISOString() };
         const docRef = await addDoc(clientsRef, newClient);
+        await logActivity('Created', 'Client', docRef.id, `Client ${newClient.name} created.`);
         return { client: { id: docRef.id, ...newClient } };
     } catch (error) {
         console.error('Error creating client:', error);
@@ -512,14 +578,33 @@ export const createItem = async (itemData) => {
         const newItem = {
             ...itemData,
             productId,
-            costPrice: Number(itemData.costPrice) || 0, // Ensure costPrice is stored
+            costPrice: Number(itemData.costPrice) || 0,
+            quantity: Number(itemData.quantity) || 0,
+            lowStockThreshold: Number(itemData.lowStockThreshold) || 5,
             createdAt: new Date().toISOString()
         };
 
         const docRef = await addDoc(itemsRef, newItem);
+        await logActivity('Created', 'Item', docRef.id, `Item ${newItem.name} created.`);
         return { item: { id: docRef.id, ...newItem } };
     } catch (error) {
         console.error('Error creating item:', error);
+        throw error;
+    }
+};
+
+export const updateItem = async (itemId, itemData) => {
+    try {
+        const uid = getUserId();
+        const itemRef = doc(db, 'users', uid, 'items', itemId);
+        await updateDoc(itemRef, {
+            ...itemData,
+            updatedAt: new Date().toISOString()
+        });
+        await logActivity('Updated', 'Item', itemId, `Item ${itemData.name || ''} updated.`);
+        return { item: { id: itemId, ...itemData } };
+    } catch (error) {
+        console.error('Error updating item:', error);
         throw error;
     }
 };
@@ -529,6 +614,7 @@ export const deleteItem = async (itemId) => {
         const uid = getUserId();
         const itemRef = doc(db, 'users', uid, 'items', itemId);
         await deleteDoc(itemRef);
+        await logActivity('Deleted', 'Item', itemId, 'Item deleted.');
         return { itemId };
     } catch (error) {
         console.error('Error deleting item:', error);

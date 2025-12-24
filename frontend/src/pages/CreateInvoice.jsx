@@ -4,7 +4,7 @@ import InvoicePreview from '../components/Invoice/InvoicePreview';
 import { Save, Download, Share2, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getNextInvoiceNumber, createInvoice, updateInvoiceStatus } from '../services/api';
-import { downloadInvoicePDF } from '../utils/pdfGenerator';
+import { downloadInvoicePDF, getInvoicePDFBlob } from '../utils/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
 
 const initialInvoice = {
@@ -74,7 +74,11 @@ export default function CreateInvoice() {
                 total: invoice.items.reduce((sum, item) => sum + (item.quantity * item.price) * (1 + (item.taxRate || 0) / 100), 0)
             };
             await createInvoice(invoiceData);
-            showNotification('Invoice saved as draft successfully!');
+
+            // Download PDF for draft as well
+            downloadInvoicePDF(invoiceData);
+
+            showNotification('Invoice saved as draft successfully! PDF downloaded.');
         } catch (error) {
             console.error('Error saving draft:', error);
             showNotification('Failed to save draft', 'error');
@@ -100,10 +104,37 @@ export default function CreateInvoice() {
             };
             const result = await createInvoice(invoiceData);
 
-            // Generate and download PDF
-            downloadInvoicePDF(invoice);
 
-            showNotification('Invoice sent successfully! PDF downloaded.');
+
+            // Handle sharing or download
+            if (isMobile && navigator.share) {
+                try {
+                    const blob = getInvoicePDFBlob(invoiceData);
+                    const file = new File([blob], `${invoiceData.invoiceNumber}.pdf`, { type: 'application/pdf' });
+
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            title: `Invoice ${invoiceData.invoiceNumber}`,
+                            text: `Please find attached invoice ${invoiceData.invoiceNumber} from ${invoiceData.from.name}`,
+                            files: [file]
+                        });
+                        showNotification('Invoice shared successfully!');
+                    } else {
+                        throw new Error('Sharing files not supported');
+                    }
+                } catch (shareError) {
+                    console.error('Error sharing:', shareError);
+                    // Fallback to regular download if sharing fails or is cancelled
+                    if (shareError.name !== 'AbortError') {
+                        downloadInvoicePDF(invoiceData);
+                        showNotification('Sharing failed, downloading PDF instead.');
+                    }
+                }
+            } else {
+                // Desktop or no share support - standard download
+                downloadInvoicePDF(invoiceData);
+                showNotification('Invoice sent successfully! PDF downloaded.');
+            }
 
             // Reset form and get new invoice number
             setTimeout(() => {

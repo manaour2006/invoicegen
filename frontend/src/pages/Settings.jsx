@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Upload, Check } from 'lucide-react';
+import { Save, Upload, Check, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { getAuditLogs } from '../services/api';
 
 export default function Settings() {
     const { user, updateProfile } = useAuth();
@@ -16,6 +17,21 @@ export default function Settings() {
     const [notification, setNotification] = useState(null);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [auditLogs, setAuditLogs] = useState([]);
+
+    useEffect(() => {
+        loadAuditLogs();
+    }, [user]);
+
+    const loadAuditLogs = async () => {
+        if (!user) return;
+        try {
+            const { logs } = await getAuditLogs(20);
+            setAuditLogs(logs);
+        } catch (error) {
+            console.error('Error loading audit logs:', error);
+        }
+    };
 
     useEffect(() => {
         if (user) {
@@ -161,6 +177,46 @@ export default function Settings() {
                 <button className="btn-primary" onClick={handleSave} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Save size={18} /> {saving ? 'Saving...' : 'Save Changes'}
                 </button>
+            </div>
+
+            {/* Audit Logs Section */}
+            <div className="glass-panel" style={{ padding: '32px', borderRadius: '16px', marginTop: '32px' }}>
+                <h2 style={{ fontSize: '20px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Activity size={20} /> Activity Logs
+                </h2>
+                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                    {auditLogs.length === 0 ? (
+                        <p className="text-muted" style={{ fontSize: '14px', fontStyle: 'italic' }}>No recent activity.</p>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {auditLogs.map(log => (
+                                <div key={log.id} style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '12px',
+                                    background: 'var(--bg-card)',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--glass-border)'
+                                }}>
+                                    <div>
+                                        <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)' }}>
+                                            {log.action} {log.entityType}
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                            {log.details}
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'right' }}>
+                                        {new Date(log.timestamp).toLocaleDateString()}
+                                        <br />
+                                        {new Date(log.timestamp).toLocaleTimeString()}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Plus, X, Trash2 } from 'lucide-react';
-import { getItems, createItem, deleteItem } from '../services/api';
+import { Package, Plus, X, Trash2, Pencil } from 'lucide-react';
+import { getItems, createItem, deleteItem, updateItem } from '../services/api';
 
 export default function Items() {
     const [items, setItems] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [deleteId, setDeleteId] = useState(null);
-    const [newItem, setNewItem] = useState({ name: '', description: '', price: 0, costPrice: 0, unit: 'unit', category: 'Others', taxRate: 18 });
+    const [editingId, setEditingId] = useState(null);
+    const [newItem, setNewItem] = useState({ name: '', description: '', price: 0, costPrice: 0, quantity: 0, lowStockThreshold: 5, unit: 'unit', category: 'Others', taxRate: 18 });
     const [loading, setLoading] = useState(true);
 
     const CATEGORIES = {
@@ -41,15 +42,37 @@ export default function Items() {
         }
     };
 
-    const handleCreateItem = async () => {
+    const handleSaveItem = async () => {
         try {
-            const result = await createItem(newItem);
-            setItems([...items, result.item]);
-            setShowModal(false);
-            setNewItem({ name: '', description: '', price: 0, costPrice: 0, unit: 'unit', category: 'Others', taxRate: 18 });
+            if (editingId) {
+                const result = await updateItem(editingId, newItem);
+                setItems(items.map(item => item.id === editingId ? result.item : item));
+            } else {
+                const result = await createItem(newItem);
+                setItems([...items, result.item]);
+            }
+            closeModal();
         } catch (error) {
-            console.error('Error creating item:', error);
+            console.error('Error saving item:', error);
         }
+    };
+
+    const openCreateModal = () => {
+        setEditingId(null);
+        setNewItem({ name: '', description: '', price: 0, costPrice: 0, quantity: 0, lowStockThreshold: 5, unit: 'unit', category: 'Others', taxRate: 18 });
+        setShowModal(true);
+    };
+
+    const openEditModal = (item) => {
+        setEditingId(item.id);
+        setNewItem({ ...item });
+        setShowModal(true);
+    };
+
+    const closeModal = () => {
+        setShowModal(false);
+        setEditingId(null);
+        setNewItem({ name: '', description: '', price: 0, costPrice: 0, quantity: 0, lowStockThreshold: 5, unit: 'unit', category: 'Others', taxRate: 18 });
     };
 
     const handleDeleteItem = async () => {
@@ -63,11 +86,20 @@ export default function Items() {
         }
     };
 
+    const getStockStatus = (item) => {
+        const qty = Number(item.quantity) || 0;
+        const threshold = Number(item.lowStockThreshold) || 5;
+        if (qty <= 0) return { label: 'Out of Stock', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
+        if (qty <= threshold) return { label: 'Low Stock', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
+        return { label: 'In Stock', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
+    };
+
     return (
         <div>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
                 <h1 className="text-gradient" style={{ fontSize: '32px', margin: 0 }}>Items</h1>
-                <button className="btn-primary" onClick={() => setShowModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button className="btn-primary" onClick={openCreateModal} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Plus size={18} /> Add Item
                 </button>
             </div>
@@ -97,10 +129,29 @@ export default function Items() {
                                     {item.category}
                                 </div>
                             )}
+                        </div>
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={() => openEditModal(item)}
+                                style={{
+                                    padding: '8px',
+                                    borderRadius: '10px',
+                                    background: 'var(--bg-dark)',
+                                    border: '1px solid var(--glass-border)',
+                                    color: 'var(--text-main)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                                title="Edit / Restock"
+                            >
+                                <Pencil size={16} />
+                            </button>
                             <button
                                 onClick={() => setDeleteId(item.id)}
                                 style={{
-                                    marginLeft: 'auto',
                                     padding: '8px',
                                     borderRadius: '10px',
                                     background: 'var(--bg-dark)',
@@ -119,9 +170,8 @@ export default function Items() {
                                 <Trash2 size={16} />
                             </button>
                         </div>
-
                         {/* Main Content */}
-                        <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+                        < div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
                             <div style={{
                                 width: '48px',
                                 height: '48px',
@@ -149,6 +199,20 @@ export default function Items() {
                                             {item.productId}
                                         </span>
                                     )}
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                    <span style={{
+                                        fontSize: '10px',
+                                        padding: '2px 8px',
+                                        borderRadius: '100px',
+                                        ...(() => {
+                                            const status = getStockStatus(item);
+                                            return { color: status.color, background: status.bg };
+                                        })(),
+                                        fontWeight: 600
+                                    }}>
+                                        {getStockStatus(item).label} ({item.quantity || 0})
+                                    </span>
                                 </div>
                                 <p className="muted" style={{ margin: 0, fontSize: '14px', lineHeight: '1.5', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                     {item.description}
@@ -181,129 +245,146 @@ export default function Items() {
             </div>
 
             {/* Create Item Modal */}
-            {showModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
-                    <div className="glass-panel" style={{ padding: '32px', borderRadius: '16px', width: '90%', maxWidth: '500px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h3 style={{ margin: 0, fontSize: '20px' }}>Create New Item</h3>
-                            <button onClick={() => setShowModal(false)} style={{ color: 'var(--text-muted)' }}>
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div>
-                                <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Category</label>
-                                <select
-                                    className="input-field"
-                                    value={newItem.category}
-                                    onChange={e => handleCategoryChange(e.target.value)}
+            {
+                showModal && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+                        <div className="glass-panel" style={{ padding: '32px', borderRadius: '16px', width: '90%', maxWidth: '500px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                                <h3 style={{ margin: 0, fontSize: '20px' }}>{editingId ? 'Edit / Restock Item' : 'Create New Item'}</h3>
+                                <button onClick={closeModal} style={{ color: 'var(--text-muted)' }}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div>
+                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Category</label>
+                                    <select
+                                        className="input-field"
+                                        value={newItem.category}
+                                        onChange={e => handleCategoryChange(e.target.value)}
+                                    >
+                                        {Object.keys(CATEGORIES).map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <input className="input-field" placeholder="Item Name" value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
+                                <input className="input-field" placeholder="Description" value={newItem.description} onChange={e => setNewItem({ ...newItem, description: e.target.value })} />
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    <div>
+                                        <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Selling Price</label>
+                                        <input type="number" className="input-field" placeholder="Selling Price" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: Number(e.target.value) })} />
+                                    </div>
+                                    <div>
+                                        <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Cost Price</label>
+                                        <input type="number" className="input-field" placeholder="Cost Price" value={newItem.costPrice} onChange={e => setNewItem({ ...newItem, costPrice: Number(e.target.value) })} />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    <div>
+                                        <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+                                            {editingId ? 'Current Stock (Update to Restock)' : 'Initial Quantity'}
+                                        </label>
+                                        <input type="number" className="input-field" placeholder="Quantity" value={newItem.quantity} onChange={e => setNewItem({ ...newItem, quantity: Number(e.target.value) })} />
+                                    </div>
+                                    <div>
+                                        <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Low Stock Alert</label>
+                                        <input type="number" className="input-field" placeholder="Threshold" value={newItem.lowStockThreshold} onChange={e => setNewItem({ ...newItem, lowStockThreshold: Number(e.target.value) })} />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    <div>
+                                        <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Tax %</label>
+                                        <input
+                                            type="number"
+                                            className="input-field"
+                                            placeholder="GST Tax %"
+                                            value={newItem.taxRate}
+                                            onChange={e => setNewItem({ ...newItem, taxRate: Number(e.target.value) })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Product ID</label>
+                                        <input
+                                            className="input-field"
+                                            placeholder="Auto-generated"
+                                            value={newItem.productId || 'Auto-generated'}
+                                            disabled
+                                            style={{ background: 'var(--bg-card)', opacity: 0.7 }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Unit</label>
+                                    <select className="input-field" value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })}>
+                                        {(CATEGORIES[newItem.category]?.units || CATEGORIES['Others'].units).map(unit => (
+                                            <option key={unit} value={unit}>Per {unit.charAt(0).toUpperCase() + unit.slice(1)}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <button
+                                    className="btn-primary"
+                                    onClick={handleSaveItem}
+                                    disabled={!newItem.name}
+                                    style={{ opacity: !newItem.name ? 0.5 : 1 }}
                                 >
-                                    {Object.keys(CATEGORIES).map(cat => (
-                                        <option key={cat} value={cat}>{cat}</option>
-                                    ))}
-                                </select>
+                                    {editingId ? 'Update Item' : 'Create Item'}
+                                </button>
                             </div>
-
-                            <input className="input-field" placeholder="Item Name" value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} />
-                            <input className="input-field" placeholder="Description" value={newItem.description} onChange={e => setNewItem({ ...newItem, description: e.target.value })} />
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                <div>
-                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Selling Price</label>
-                                    <input type="number" className="input-field" placeholder="Selling Price" value={newItem.price} onChange={e => setNewItem({ ...newItem, price: Number(e.target.value) })} />
-                                </div>
-                                <div>
-                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Cost Price</label>
-                                    <input type="number" className="input-field" placeholder="Cost Price" value={newItem.costPrice} onChange={e => setNewItem({ ...newItem, costPrice: Number(e.target.value) })} />
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                <div>
-                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Tax %</label>
-                                    <input
-                                        type="number"
-                                        className="input-field"
-                                        placeholder="GST Tax %"
-                                        value={newItem.taxRate}
-                                        onChange={e => setNewItem({ ...newItem, taxRate: Number(e.target.value) })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Product ID</label>
-                                    <input
-                                        className="input-field"
-                                        placeholder="Auto-generated"
-                                        value={newItem.productId || 'Auto-generated'}
-                                        disabled
-                                        style={{ background: 'var(--bg-card)', opacity: 0.7 }}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="text-muted" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Unit</label>
-                                <select className="input-field" value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })}>
-                                    {(CATEGORIES[newItem.category]?.units || CATEGORIES['Others'].units).map(unit => (
-                                        <option key={unit} value={unit}>Per {unit.charAt(0).toUpperCase() + unit.slice(1)}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <button
-                                className="btn-primary"
-                                onClick={handleCreateItem}
-                                disabled={!newItem.name}
-                                style={{ opacity: !newItem.name ? 0.5 : 1 }}
-                            >
-                                Create Item
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Delete Confirmation Modal */}
-            {deleteId && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                    <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', maxWidth: '400px', width: '90%', textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
-                        <h3 style={{ margin: '0 0 12px 0', fontSize: '18px' }}>Delete Item?</h3>
-                        <p style={{ color: 'var(--text-muted)', margin: '0 0 24px 0', fontSize: '14px' }}>
-                            Are you sure you want to delete this item? This action cannot be undone.
-                        </p>
-                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                            <button
-                                onClick={() => setDeleteId(null)}
-                                style={{
-                                    padding: '8px 24px',
-                                    borderRadius: '8px',
-                                    border: '1px solid var(--glass-border)',
-                                    background: 'transparent',
-                                    color: 'var(--text-main)',
-                                    fontSize: '14px',
-                                    fontWeight: 500
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleDeleteItem}
-                                style={{
-                                    padding: '8px 24px',
-                                    borderRadius: '8px',
-                                    background: 'var(--primary)',
-                                    color: 'white',
-                                    border: 'none',
-                                    fontSize: '14px',
-                                    fontWeight: 500,
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Delete
-                            </button>
+            {
+                deleteId && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+                        <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', maxWidth: '400px', width: '90%', textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
+                            <h3 style={{ margin: '0 0 12px 0', fontSize: '18px' }}>Delete Item?</h3>
+                            <p style={{ color: 'var(--text-muted)', margin: '0 0 24px 0', fontSize: '14px' }}>
+                                Are you sure you want to delete this item? This action cannot be undone.
+                            </p>
+                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                                <button
+                                    onClick={() => setDeleteId(null)}
+                                    style={{
+                                        padding: '8px 24px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--glass-border)',
+                                        background: 'transparent',
+                                        color: 'var(--text-main)',
+                                        fontSize: '14px',
+                                        fontWeight: 500
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteItem}
+                                    style={{
+                                        padding: '8px 24px',
+                                        borderRadius: '8px',
+                                        background: 'var(--primary)',
+                                        color: 'white',
+                                        border: 'none',
+                                        fontSize: '14px',
+                                        fontWeight: 500,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

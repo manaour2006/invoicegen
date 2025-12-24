@@ -104,7 +104,8 @@ export default function InvoiceEditor({ invoice, onChange }) {
             quantity: 1,
             price: libraryItem.price,
             costPrice: libraryItem.costPrice || 0, // IMPORTANT: Carry over cost price
-            taxRate: libraryItem.taxRate || 0
+            taxRate: libraryItem.taxRate || 0,
+            itemId: libraryItem.id // Link to inventory item for stock tracking
         };
         onChange({ ...invoice, items: [...invoice.items, newItem] });
     };
